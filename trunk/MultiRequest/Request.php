@@ -6,19 +6,18 @@
  *
  */
 class MultiRequest_Request {
-	
+
 	/**
 	 * @var MultiRequest_Callbacks
 	 */
 	protected $callbacks;
-	
+
 	protected $url;
 	protected $realUrl;
 	protected $curlHandle;
 	protected $headers = array('Expect:');
 	protected $getData;
 	protected $postData;
-	protected $curlOptions = array(CURLOPT_TIMEOUT => 3600, CURLOPT_CONNECTTIMEOUT => 200, CURLOPT_FAILONERROR => true, CURLOPT_FRESH_CONNECT => true, CURLOPT_HEADER => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 10, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => false, CURLOPT_FORBID_REUSE => true, CURLOPT_VERBOSE => true, CURLOPT_MAXCONNECTS => 1);
 	protected $curlInfo;
 	protected $serverEncoding = 'utf-8';
 	protected $defaultClientEncoding = 'utf-8';
@@ -26,7 +25,21 @@ class MultiRequest_Request {
 	protected $responseHeadersList = array();
 	protected $responseContent;
 	protected $error;
-	
+	protected $curlOptions = array(
+		CURLOPT_TIMEOUT => 3600,
+		CURLOPT_CONNECTTIMEOUT => 200,
+		CURLOPT_FAILONERROR => true,
+		CURLOPT_FRESH_CONNECT => true,
+		CURLOPT_HEADER => true,
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_FOLLOWLOCATION => true,
+		CURLOPT_MAXREDIRS => 10,
+		CURLOPT_SSL_VERIFYPEER => false,
+		CURLOPT_SSL_VERIFYHOST => false,
+		CURLOPT_FORBID_REUSE => true,
+		CURLOPT_VERBOSE => true,
+		CURLOPT_MAXCONNECTS => 1);
+
 	protected static $clientsEncodings;
 
 	public function __construct($url) {
@@ -51,8 +64,12 @@ class MultiRequest_Request {
 		return $this->realUrl;
 	}
 
-	public function setEncoding($charset) {
-		$this->charsetg = $charset;
+	public function setServerEncoding($serverEncoding) {
+		$this->serverEncoding = $serverEncoding;
+	}
+
+	public function setDefaultClientEncoding($clientEncoding) {
+		$this->defaultClientEncoding = $clientEncoding;
 	}
 
 	public function addHeader($header) {
@@ -105,13 +122,13 @@ class MultiRequest_Request {
 		$curlHandle = curl_init($this->url);
 		$curlOptions = $this->curlOptions;
 		$curlOptions[CURLINFO_HEADER_OUT] = true;
-		
+
 		if($this->headers) {
 			$curlOptions[CURLOPT_HTTPHEADER] = $this->headers;
 		}
 		if($this->postData) {
 			$postData = $this->postData;
-			
+
 			$clientEncoding = isset(self::$clientsEncodings[$this->getDomain()]) ? self::$clientsEncodings[$this->getDomain()] : $this->defaultClientEncoding;
 			if($clientEncoding != $this->serverEncoding) {
 				array_walk_recursive($postData, create_function('&$value', '$value = mb_convert_encoding($value, "' . $clientEncoding . '", "' . $this->serverEncoding . '");'));
@@ -120,7 +137,7 @@ class MultiRequest_Request {
 			$curlOptions[CURLOPT_POSTFIELDS] = $postData;
 			$this->addHeader('Content-Type:	application/x-www-form-urlencoded; charset=' . $clientEncoding);
 		}
-		
+
 		curl_setopt_array($curlHandle, $curlOptions);
 		return $curlHandle;
 	}
@@ -137,16 +154,20 @@ class MultiRequest_Request {
 	}
 
 	public static function getRequestIdByCurlHandle($curlHandle) {
-		return substr((string) $curlHandle, 13);
+		return substr((string)$curlHandle, 13);
 	}
 
 	public function getUrl() {
 		return $this->url . ($this->getData ? (strstr($this->url, '?') === false ? '?' : '&') . http_build_query($this->getData) : '');
 	}
 
+	public function reInitCurlHandle() {
+		$this->curlHandle = $this->initCurlHandle();
+	}
+
 	public function getCurlHandle($new = false) {
 		if(!$this->curlHandle || $new) {
-			$this->curlHandle = $this->initCurlHandle();
+			$this->reInitCurlHandle();
 		}
 		return $this->curlHandle;
 	}
@@ -164,7 +185,7 @@ class MultiRequest_Request {
 		$this->curlInfo = curl_getinfo($curlHandle);
 		$this->error = curl_error($curlHandle);
 		$responseData = curl_multi_getcontent($curlHandle);
-		
+
 		$this->responseHeaders = substr($responseData, 0, curl_getinfo($curlHandle, CURLINFO_HEADER_SIZE));
 		$this->responseContent = substr($responseData, curl_getinfo($curlHandle, CURLINFO_HEADER_SIZE));
 		$clientEncoding = $this->detectClientCharset($this->getResponseHeaders());
@@ -176,10 +197,10 @@ class MultiRequest_Request {
 			curl_close($curlHandle);
 		}
 	}
-	
+
 	public function notifyIsComplete(MultiRequest_Handler $handler) {
 		$this->callbacks->onComplete($this, $handler);
-		
+
 		$failException = $this->getFailException();
 		if($failException) {
 			$this->notifyIsFailed($failException, $handler);
@@ -224,13 +245,13 @@ class MultiRequest_Request {
 			}
 		}
 	}
-	
+
 	public function get() {
 		curl_exec($this->getCurlHandle(true));
 		$this->handleCurlResult();
 		return $this->getContent();
 	}
-	
+
 	public function __toString() {
 		return $this->get();
 	}
@@ -283,11 +304,14 @@ class MultiRequest_Request {
 }
 
 class MultiRequest_Exception extends Exception {
+
 }
 
 class MultiRequest_FailedConnection extends MultiRequest_Exception {
+
 }
 
 class MultiRequest_FailedResponse extends MultiRequest_Exception {
+
 }
 
