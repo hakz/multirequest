@@ -274,7 +274,7 @@ class MultiRequest_Request {
 		return $headers;
 	}
 
-	public function getRespopnseCookies(&$deleted = null) {
+	public function getResponseCookies(&$deleted = null) {
 		$cookies = array();
 		$deleted = array();
 		foreach($this->getResponseHeaders() as $header) {
